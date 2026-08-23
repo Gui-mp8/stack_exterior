@@ -2,7 +2,6 @@ import os
 import random
 from datetime import datetime, timedelta
 
-import pandas as pd
 import pyarrow as pa
 from pyiceberg.catalog import load_catalog
 
@@ -84,12 +83,11 @@ def load_or_create_table(catalog, table_name):
     )
 
 
-def append_dataframe(catalog, df, table_name, file_number):
+def append_rows(catalog, rows, table_name, file_number):
     table = load_or_create_table(catalog, table_name)
-    arrow_table = pa.Table.from_pandas(
-        df,
+    arrow_table = pa.Table.from_pylist(
+        rows,
         schema=SCHEMAS[table_name],
-        preserve_index=False,
     )
 
     table.append(
@@ -127,7 +125,7 @@ def create_customers_file(catalog, file_number):
             }
         )
 
-    return append_dataframe(catalog, pd.DataFrame(rows), "customers", file_number)
+    return append_rows(catalog, rows, "customers", file_number)
 
 
 def create_orders_file(catalog, file_number, max_customer_id):
@@ -156,7 +154,7 @@ def create_orders_file(catalog, file_number, max_customer_id):
             }
         )
 
-    return append_dataframe(catalog, pd.DataFrame(rows), "orders", file_number)
+    return append_rows(catalog, rows, "orders", file_number)
 
 
 def create_order_items_file(catalog, file_number, max_order_id):
@@ -192,7 +190,7 @@ def create_order_items_file(catalog, file_number, max_order_id):
             }
         )
 
-    return append_dataframe(catalog, pd.DataFrame(rows), "order_items", file_number)
+    return append_rows(catalog, rows, "order_items", file_number)
 
 
 def main():
