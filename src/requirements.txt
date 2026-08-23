@@ -1,3 +1,4 @@
 boto3==1.35.99
 pandas==2.2.3
 pyarrow==18.1.0
+pyiceberg[glue,pyarrow]==0.11.1

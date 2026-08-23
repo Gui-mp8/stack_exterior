@@ -31,6 +31,7 @@ def bronze_pipeline():
             "S3_BUCKET": BRONZE_CONFIG["s3_bucket"],
             "S3_BRONZE_PREFIX": BRONZE_CONFIG["s3_prefix"],
             "ROWS_PER_FILE": BRONZE_CONFIG["rows_per_file"],
+            "GLUE_DATABASE_NAME": BRONZE_CONFIG["glue_database"],
         },
         private_environment={
             "AWS_ACCESS_KEY_ID": os.environ.get("AWS_ACCESS_KEY_ID", ""),
