@@ -32,3 +32,4 @@ select
     payment_method
 from ranked
 where row_number = 1
+
