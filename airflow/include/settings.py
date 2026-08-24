@@ -41,8 +41,13 @@ ECS_DBT_CONFIG = {
     "cluster": "stack-exterior",
     "task_definition": "stack-exterior-dbt",
     "container_name": "stack-exterior-dbt",
-    "subnets": ["subnet-CHANGE_ME"],
-    "security_groups": ["sg-CHANGE_ME"],
+    "subnets": [
+        "subnet-03e86aa96a7725b0c",
+        "subnet-074b06b99be79e819",
+    ],
+    "security_groups": [
+        "sg-053552f870fb4a7a9",
+    ],
     "assign_public_ip": "ENABLED",
     "log_group": "/ecs/stack-exterior-dbt",
     "log_stream_prefix": "ecs/stack-exterior-dbt",
