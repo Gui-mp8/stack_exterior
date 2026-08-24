@@ -1,0 +1,24 @@
+name: stack_exterior
+version: "1.0.0"
+config-version: 2
+
+profile: stack_exterior
+
+model-paths: ["models"]
+macro-paths: ["macros"]
+clean-targets: ["target", "dbt_packages"]
+
+models:
+  stack_exterior:
+    +materialized: table
+    +table_type: iceberg
+    +format: parquet
+    +persist_docs:
+      relation: true
+      columns: true
+    silver:
+      +schema: stack_exterior_silver
+      +tags: ["silver"]
+    gold:
+      +schema: stack_exterior_gold
+      +tags: ["gold"]

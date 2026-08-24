@@ -1,0 +1,6 @@
+services:
+  scheduler:
+    group_add:
+      - "999"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock

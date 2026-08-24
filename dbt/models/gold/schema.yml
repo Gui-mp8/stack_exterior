@@ -1,0 +1,16 @@
+version: 2
+
+models:
+  - name: fct_daily_sales
+    description: Vendas agregadas por dia, canal, pagamento e categoria.
+    columns:
+      - name: sale_date
+        data_tests: [not_null]
+      - name: gross_revenue
+        data_tests: [not_null]
+
+  - name: dim_customer_value
+    description: Visao analitica de frequencia e valor acumulado por cliente.
+    columns:
+      - name: customer_id
+        data_tests: [not_null, unique]
