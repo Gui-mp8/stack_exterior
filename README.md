@@ -55,6 +55,9 @@ Gold:
 Todos os modelos sao materializados como Iceberg. Os modelos Silver usam
 `merge`, portanto exigem Athena engine version 3.
 
+O adapter usa `schema_table_unique` para criar uma localizacao S3 nova a cada
+reconstrucao das tabelas Gold e realizar a troca de metadados sem indisponibilidade.
+
 ## Desenvolvimento local
 
 Imagem do gerador Bronze:
