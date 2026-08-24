@@ -1,0 +1,16 @@
+stack_exterior:
+  target: fargate
+  outputs:
+    fargate:
+      type: athena
+      database: awsdatacatalog
+      schema: stack_exterior_silver
+      region_name: "{{ env_var('AWS_REGION', 'us-east-1') }}"
+      s3_staging_dir: "{{ env_var('DBT_S3_STAGING_DIR', 's3://modern-data-platform-guilherme-2026/athena-results/dbt/') }}"
+      s3_data_dir: "{{ env_var('DBT_S3_DATA_DIR', 's3://modern-data-platform-guilherme-2026/') }}"
+      s3_data_naming: schema_table
+      work_group: "{{ env_var('ATHENA_WORKGROUP', 'primary') }}"
+      threads: 4
+      num_retries: 2
+      num_boto3_retries: 3
+      num_iceberg_retries: 3

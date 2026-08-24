@@ -1,0 +1,36 @@
+version: 2
+
+models:
+  - name: stg_customers
+    description: Clientes deduplicados e padronizados da camada bronze.
+    columns:
+      - name: customer_id
+        data_tests: [not_null, unique]
+      - name: state
+        data_tests: [not_null]
+
+  - name: stg_orders
+    description: Pedidos deduplicados e padronizados da camada bronze.
+    columns:
+      - name: order_id
+        data_tests: [not_null, unique]
+      - name: customer_id
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('stg_customers')
+                field: customer_id
+
+  - name: stg_order_items
+    description: Itens de pedido deduplicados e com valores monetarios tipados.
+    columns:
+      - name: order_item_id
+        data_tests: [not_null, unique]
+      - name: order_id
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('stg_orders')
+                field: order_id

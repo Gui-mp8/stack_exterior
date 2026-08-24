@@ -1,0 +1,11 @@
+version: 2
+
+sources:
+  - name: bronze
+    description: Tabelas Iceberg brutas geradas pela DAG bronze.
+    database: awsdatacatalog
+    schema: "{{ env_var('DBT_BRONZE_SCHEMA', 'stack_exterior_bronze') }}"
+    tables:
+      - name: customers
+      - name: orders
+      - name: order_items

@@ -1,0 +1,129 @@
+name: dbt ECS
+
+on:
+  pull_request:
+    paths:
+      - "dbt/**"
+      - ".github/workflows/dbt-ecs.yml"
+  push:
+    branches: ["main"]
+    paths:
+      - "dbt/**"
+      - ".github/workflows/dbt-ecs.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+env:
+  AWS_REGION: ${{ vars.AWS_REGION || 'us-east-1' }}
+  ECR_REPOSITORY: ${{ vars.ECR_REPOSITORY || 'stack-exterior-dbt' }}
+  ECS_TASK_FAMILY: ${{ vars.ECS_TASK_FAMILY || 'stack-exterior-dbt' }}
+  ECS_CONTAINER_NAME: ${{ vars.ECS_CONTAINER_NAME || 'stack-exterior-dbt' }}
+  S3_BUCKET: ${{ vars.S3_BUCKET || 'modern-data-platform-guilherme-2026' }}
+  BRONZE_DATABASE: ${{ vars.BRONZE_DATABASE || 'stack_exterior_bronze' }}
+  ATHENA_WORKGROUP: ${{ vars.ATHENA_WORKGROUP || 'primary' }}
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build dbt image
+        run: docker build --file dbt/Dockerfile --tag stack-exterior-dbt:test dbt
+
+      - name: Parse dbt project
+        run: >-
+          docker run --rm
+          -e AWS_REGION
+          -e DBT_BRONZE_SCHEMA=$BRONZE_DATABASE
+          -e DBT_S3_STAGING_DIR=s3://$S3_BUCKET/athena-results/dbt/
+          -e DBT_S3_DATA_DIR=s3://$S3_BUCKET/
+          -e ATHENA_WORKGROUP
+          stack-exterior-dbt:test
+          parse --no-partial-parse
+
+  deploy:
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+    needs: validate
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure short-lived AWS credentials
+        uses: aws-actions/configure-aws-credentials@v5
+        with:
+          role-to-assume: ${{ vars.AWS_GITHUB_ACTIONS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Log in to Amazon ECR
+        id: ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Build and push immutable image
+        env:
+          ECR_REGISTRY: ${{ steps.ecr.outputs.registry }}
+        run: |
+          docker build --file dbt/Dockerfile --tag "$ECR_REGISTRY/$ECR_REPOSITORY:$GITHUB_SHA" dbt
+          docker tag "$ECR_REGISTRY/$ECR_REPOSITORY:$GITHUB_SHA" "$ECR_REGISTRY/$ECR_REPOSITORY:latest"
+          docker push "$ECR_REGISTRY/$ECR_REPOSITORY:$GITHUB_SHA"
+          docker push "$ECR_REGISTRY/$ECR_REPOSITORY:latest"
+
+      - name: Render ECS task definition
+        env:
+          ECR_REGISTRY: ${{ steps.ecr.outputs.registry }}
+          ECS_EXECUTION_ROLE_ARN: ${{ vars.ECS_EXECUTION_ROLE_ARN }}
+          ECS_TASK_ROLE_ARN: arn:aws:iam::181027095791:role/AWSCustomGlueRole
+        run: |
+          jq -n \
+            --arg family "$ECS_TASK_FAMILY" \
+            --arg container "$ECS_CONTAINER_NAME" \
+            --arg image "$ECR_REGISTRY/$ECR_REPOSITORY:$GITHUB_SHA" \
+            --arg execution_role "$ECS_EXECUTION_ROLE_ARN" \
+            --arg task_role "$ECS_TASK_ROLE_ARN" \
+            --arg region "$AWS_REGION" \
+            --arg bronze_database "$BRONZE_DATABASE" \
+            --arg staging "s3://$S3_BUCKET/athena-results/dbt/" \
+            --arg data "s3://$S3_BUCKET/" \
+            --arg workgroup "$ATHENA_WORKGROUP" \
+            '{
+              family: $family,
+              networkMode: "awsvpc",
+              requiresCompatibilities: ["FARGATE"],
+              cpu: "1024",
+              memory: "2048",
+              executionRoleArn: $execution_role,
+              taskRoleArn: $task_role,
+              runtimePlatform: {
+                cpuArchitecture: "X86_64",
+                operatingSystemFamily: "LINUX"
+              },
+              containerDefinitions: [
+                {
+                  name: $container,
+                  image: $image,
+                  essential: true,
+                  command: ["--help"],
+                  environment: [
+                    {name: "AWS_REGION", value: $region},
+                    {name: "DBT_BRONZE_SCHEMA", value: $bronze_database},
+                    {name: "DBT_S3_STAGING_DIR", value: $staging},
+                    {name: "DBT_S3_DATA_DIR", value: $data},
+                    {name: "ATHENA_WORKGROUP", value: $workgroup}
+                  ],
+                  logConfiguration: {
+                    logDriver: "awslogs",
+                    options: {
+                      "awslogs-group": "/ecs/stack-exterior-dbt",
+                      "awslogs-region": $region,
+                      "awslogs-stream-prefix": "ecs"
+                    }
+                  }
+                }
+              ]
+            }' > /tmp/task-definition.json
+
+      - name: Register new ECS task revision
+        run: aws ecs register-task-definition --cli-input-json file:///tmp/task-definition.json

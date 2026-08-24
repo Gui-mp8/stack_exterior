@@ -6,6 +6,7 @@ from datetime import datetime
 from airflow.providers.docker.operators.docker import DockerOperator
 from airflow.sdk import dag
 from include.settings import BRONZE_CONFIG
+from include.tasks.assets import publish_bronze_ready
 from include.tasks.s3 import ensure_s3_prefix
 from include.task_groups.glue_catalog import TaskFactoryGlueCatalogTG
 
@@ -46,8 +47,9 @@ def bronze_pipeline():
         group_id="configure_glue_catalog",
         config=BRONZE_CONFIG,
     )
+    bronze_ready = publish_bronze_ready()
 
-    s3_prefix >> generate_bronze_data >> glue_catalog
+    s3_prefix >> generate_bronze_data >> glue_catalog >> bronze_ready
 
 
 bronze_pipeline()

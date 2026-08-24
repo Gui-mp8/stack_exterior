@@ -34,3 +34,16 @@ BRONZE_CONFIG = {
         ],
     },
 }
+
+ECS_DBT_CONFIG = {
+    "aws_conn_id": "aws_default",
+    "aws_region": "us-east-1",
+    "cluster": "stack-exterior",
+    "task_definition": "stack-exterior-dbt",
+    "container_name": "stack-exterior-dbt",
+    "subnets": ["subnet-CHANGE_ME"],
+    "security_groups": ["sg-CHANGE_ME"],
+    "assign_public_ip": "ENABLED",
+    "log_group": "/ecs/stack-exterior-dbt",
+    "log_stream_prefix": "ecs/stack-exterior-dbt",
+}
