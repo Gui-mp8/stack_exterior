@@ -1,4 +1,4 @@
-# Stack Exterior
+# AWS Engineering
 
 Projeto de aprendizado de uma plataforma de dados moderna na AWS, usando
 Airflow 3, S3, Apache Iceberg, Glue Data Catalog, Athena, dbt e ECS Fargate.
