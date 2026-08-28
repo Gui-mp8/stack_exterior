@@ -58,6 +58,97 @@ Todos os modelos sao materializados como Iceberg. Os modelos Silver usam
 O adapter usa `schema_table_unique` para criar uma localizacao S3 nova a cada
 reconstrucao das tabelas Gold e realizar a troca de metadados sem indisponibilidade.
 
+## Configuracao da AWS
+
+### AWS CLI
+
+Instale a AWS CLI v2 no Linux x86_64:
+
+```bash
+curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
+unzip awscliv2.zip
+sudo ./aws/install
+```
+
+Confirme a instalacao e configure o acesso local:
+
+```bash
+aws --version
+aws configure
+```
+
+Informe `AWS Access Key ID`, `AWS Secret Access Key`, regiao `us-east-1` e
+formato de saida `json`. As credenciais ficam no perfil local da AWS e nao devem
+ser enviadas ao repositorio. Valide a identidade configurada:
+
+```bash
+aws sts get-caller-identity
+```
+
+A instalacao para outras arquiteturas e sistemas operacionais esta na
+[documentacao oficial da AWS CLI](https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html).
+
+### Roles do ECS
+
+A Task Definition usa duas roles com responsabilidades diferentes:
+
+- `stack-exterior-ecs-execution`: execution role usada pelo Fargate para baixar
+  a imagem do ECR e publicar logs no CloudWatch. Deve confiar em
+  `ecs-tasks.amazonaws.com` e possuir a policy gerenciada
+  `AmazonECSTaskExecutionRolePolicy`.
+- `AWSCustomGlueRole`: task role entregue ao container dbt. Deve confiar em
+  `ecs-tasks.amazonaws.com` e possuir acesso ao Athena, Glue e aos prefixes
+  Bronze, Silver, Gold e de resultados no S3. Caso a role continue sendo usada
+  por Glue Jobs, preserve tambem `glue.amazonaws.com` na trust policy.
+
+A task role utilizada neste projeto e:
+
+```text
+arn:aws:iam::181027095791:role/AWSCustomGlueRole
+```
+
+Quem registra ou executa a Task Definition tambem precisa de `iam:PassRole`
+para essas duas roles. A identidade usada pelo Airflow precisa ainda de
+`ecs:RunTask`, `ecs:DescribeTasks`, `ecs:DescribeTaskDefinition`, `ecs:ListTasks`
+e `logs:GetLogEvents`.
+
+### GitHub Actions
+
+O deploy usa OIDC, portanto nao requer access keys armazenadas no GitHub. No
+IAM, crie o identity provider com:
+
+```text
+Provider URL: https://token.actions.githubusercontent.com
+Audience: sts.amazonaws.com
+```
+
+A role `stack-exterior-github-actions` deve confiar nesse provider e restringir
+o subject ao repositorio e branch usados no deploy:
+
+```text
+repo:Gui-mp8/stack_exterior:ref:refs/heads/main
+```
+
+Essa role precisa publicar imagens no ECR, registrar e consultar Task
+Definitions no ECS e executar `iam:PassRole` para
+`stack-exterior-ecs-execution` e `AWSCustomGlueRole`.
+
+Em `Settings -> Secrets and variables -> Actions -> Variables` no repositorio
+GitHub, configure:
+
+- `AWS_GITHUB_ACTIONS_ROLE_ARN`
+- `AWS_REGION`
+- `ECR_REPOSITORY`
+- `ECS_TASK_FAMILY`
+- `ECS_CONTAINER_NAME`
+- `ECS_EXECUTION_ROLE_ARN`
+- `S3_BUCKET`
+- `BRONZE_DATABASE`
+- `ATHENA_WORKGROUP`
+
+Os comandos para criar ECR, cluster ECS, log group e executar o primeiro teste
+estao em [`docs/AWS_GITHUB_SETUP.md`](docs/AWS_GITHUB_SETUP.md).
+
 ## Desenvolvimento local
 
 Imagem do gerador Bronze:
